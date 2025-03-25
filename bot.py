@@ -2,6 +2,17 @@ import telebot
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from dotenv import load_dotenv
+import os
+
+load_dotenv();
+
+TOKEN = os.getenv("BOT_TOKEN")
+
+if not TOKEN:
+    raise ValueError("NO TOKENS")
+
+bot = telebot.TeleBot(TOKEN)
 
 # ==== Настройка Google Sheets ====
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -13,12 +24,8 @@ spreadsheet = client.open("Students Certificates")
 students_sheet = spreadsheet.worksheet("students")
 certificates_sheet = spreadsheet.worksheet("certificates")
 
-# ==== Настройки бота ====
-TOKEN = "ТВОЙ_ТОКЕН_БОТА"
-bot = telebot.TeleBot(TOKEN)
-
 # Список ID администраторов
-ADMIN_IDS = [123456789]  # Замените на реальные ID
+ADMIN_IDS = os.getenv("ADMIN_IDS")  # Замените на реальные ID
 
 # ==== Главное меню ====
 def main_menu():
