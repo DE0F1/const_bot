@@ -7,11 +7,16 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv();
-service_account_info = json.loads(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON"))
+service_account_json_str = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+try: 
+    service_account_info = json.loads(service_account_json_str)
+except json.JSONDecodeError as e:
+    print (f"Error decoding JSON: {e}")
+    praise
 
 # ==== Настройка Google Sheets ====
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("service_account_info", scope)
+creds = ServiceAccountCredentials.from_json_keyfile_dict("service_account_info", scope)
 client = gspread.authorize(creds)
 
 # Открываем таблицу
