@@ -9,12 +9,9 @@ import os
 load_dotenv();
 service_account_info = json.loads(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON"))
 
-
-
-
 # ==== Настройка Google Sheets ====
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_dict("service_account.json", scope)
+creds = ServiceAccountCredentials.from_json_keyfile_dict("service_account_info", scope)
 client = gspread.authorize(creds)
 
 # Открываем таблицу
