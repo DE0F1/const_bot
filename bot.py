@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv();
-service_account_info = json.loads(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+service_account_info = json.loads(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON"))
 
 
 
