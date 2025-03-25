@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv();
-service_account_json_str = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+service_account_info = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
 try: 
     service_account_info = json.loads(service_account_json_str)
 except json.JSONDecodeError as e:
