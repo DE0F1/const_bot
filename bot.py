@@ -51,11 +51,19 @@ def admin_menu():
     markup.add(KeyboardButton("Просмотр грамот 📜"))
     return markup
 
+# ==== Проверка, является ли пользователь администратором ====
+def is_admin(user_id):
+    return str(user_id) in ADMIN_IDS
+
 # ==== Старт бота ====
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.chat.id
     records = students_sheet.get_all_records()
+
+    if is_admin(user_id):
+        bot.send_message(user_id, "Добро пожаловать, администратор!", reply_markup=admin_menu())
+        return
 
     for row in records:
         if row["ID"] == user_id:
@@ -113,10 +121,14 @@ def upload_certificate(message):
     user_id = message.chat.id
     file_id = message.document.file_id
 
+    if is_admin(user_id):
+        bot.send_message(user_id, "Администраторы не могут загружать грамоты.")
+        return
+
     records = students_sheet.get_all_records()
     for row in records:
         if row["ID"] == user_id and row["Статус"] == "approved":
-            certificates_sheet.append_row([file_id, user_id, message.document.file_name, "pending"])
+            certificates_sheet.append_row([user_id, row["Имя"], row["Класс"], file_id, "pending"])
             bot.send_message(user_id, "Грамота отправлена на проверку.")
             
             for admin_id in ADMIN_IDS:
@@ -135,10 +147,10 @@ def approve_certificate(call):
 
     data = certificates_sheet.get_all_values()
     for i, row in enumerate(data):
-        if row[0] == file_id:
-            certificates_sheet.update_cell(i + 1, 4, "approved")
+        if row[3] == file_id:  # Проверяем по индексу 3, так как "File" на 4-м месте
+            certificates_sheet.update_cell(i + 1, 4, "approved")  # Обновляем статус
             bot.send_message(call.message.chat.id, "Грамота подтверждена!")
-            bot.send_message(int(row[1]), "Ваша грамота подтверждена!")
+            bot.send_message(int(row[0]), "Ваша грамота подтверждена!")  # ID ученика на 1-м месте
             return
 
 # ==== Просмотр грамот ====
@@ -146,11 +158,11 @@ def approve_certificate(call):
 def my_certificates(message):
     user_id = message.chat.id
     records = certificates_sheet.get_all_records()
-    found = False
+       found = False
 
     for row in records:
-        if row["ID ученика"] == user_id and row["Статус"] == "approved":
-            bot.send_document(user_id, row["Файл"])
+        if row["ID"] == user_id and row["Status"] == "approved":  # Проверяем статус
+            bot.send_document(user_id, row["File"])  # Отправляем файл
             found = True
 
     if not found:
