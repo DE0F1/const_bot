@@ -119,7 +119,7 @@ def approve_student(call):
 @bot.message_handler(content_types=['document'])
 def upload_certificate(message):
     user_id = message.chat.id
-    file_id = message.document.file_id
+    file= message.document.file
 
     if is_admin(user_id):
         bot.send_message(user_id, "Администраторы не могут загружать грамоты.")
@@ -129,7 +129,7 @@ def upload_certificate(message):
     for row in records:
         if row["ID"] == user_id and row["Статус"] == "approved":
             # Добавляем данные в таблицу certificates
-            certificates_sheet.append_row([user_id, row["Имя"], row["Класс"], file_id, "pending"])
+            certificates_sheet.append_row([user_id, row["Имя"], row["Класс"], file, "pending"])
             bot.send_message(user_id, "Грамота отправлена на проверку.")
             
             for admin_id in ADMIN_IDS:
