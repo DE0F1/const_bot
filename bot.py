@@ -6,12 +6,15 @@ from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 from dotenv import load_dotenv
 import os
 
-load_dotenv();
+load_dotenv()
 service_account_info = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+
+# Преобразуем строку JSON в словарь
+creds_dict = json.loads(service_account_info)
 
 # ==== Настройка Google Sheets ====
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_dict("service_account_info", scope)
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 
 # Открываем таблицу
