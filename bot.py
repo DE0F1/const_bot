@@ -115,13 +115,6 @@ def approve_student(call):
             bot.send_message(call.message.chat.id, "Ученик подтвержден!")
             return
 
-# ==== Загрузка грамот ====
-@bot.message_handler(func=lambda message: message.text == "Загрузить грамоту 📜")
-def request_certificate_upload(message):
-    user_id = message.chat.id
-    bot.send_message(user_id, "Загрузите документ (грамоту):")
-
-# Обработка загрузки документа
 @bot.message_handler(content_types=['document'])
 def upload_certificate(message):
     user_id = message.chat.id
@@ -132,20 +125,29 @@ def upload_certificate(message):
         return
 
     records = students_sheet.get_all_records()
-    for row in records:
-        if row["ID"] == user_id and row["Статус"] == "approved":
-            # Добавляем данные в таблицу certificates
-            certificates_sheet.append_row([user_id, row["Имя"], row["Класс"], file_id, "pending"])
-            bot.send_message(user_id, "Грамота отправлена на проверку.")
-            
-            for admin_id in ADMIN_IDS:
-                bot.send_message(admin_id, f"Новая грамота от {row['Имя']} (ID: {user_id})",
-                                 reply_markup=InlineKeyboardMarkup().add(
-                                     InlineKeyboardButton("✅ Подтвердить", callback_data=f"approve_cert_{file_id}")
-                                 ))
-            return
+    found = False  # Флаг для проверки, найден ли пользователь
 
-    bot.send_message(user_id, "Вы не зарегистрированы или ожидаете подтверждения.")
+    for row in records:
+        if row.get("ID") == user_id and row.get("Статус") == "approved":
+            found = True  # Устанавливаем флаг, если пользователь найден
+            try:
+                # Добавляем данные в таблицу certificates
+                certificates_sheet.append_row([user_id, row["Имя"], row["Класс"], file_id, "pending"])
+                bot.send_message(user_id, "Грамота отправлена на проверку.")
+                
+                for admin_id in ADMIN_IDS:
+                    bot.send_message(admin_id, f"Новая грамота от {row['Имя']} (ID: {user_id})",
+                                     reply_markup=InlineKeyboardMarkup().add(
+                                         InlineKeyboardButton("✅ Подтвердить", callback_data=f"approve_cert_{file_id}")
+                                     ))
+                return
+            except Exception as e:
+                bot.send_message(user_id, "Произошла ошибка при записи в таблицу.")
+                print(f"Ошибка при записи в таблицу: {e}")  # Выводим ошибку в консоль
+                return
+
+    if not found:
+        bot.send_message(user_id, "Вы не зарегистрированы или ожидаете подтверждения.")
 
 # ==== Подтверждение грамот ====
 @bot.callback_query_handler(func=lambda call: call.data.startswith("approve_cert_"))
