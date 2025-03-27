@@ -157,4 +157,5 @@ def my_certificates(message):
         bot.send_message(user_id, "У вас нет подтвержденных грамот.")
 
 # ==== Запуск бота ====
-bot.polling()
+# Запуск бота с увеличенным временем ожидания
+bot.polling(timeout=30)  # Увеличьте время ожидания до 30 секунд
