@@ -121,12 +121,15 @@ def upload_certificate(message):
     user_id = message.chat.id
     file_id = message.document.file_id
 
+    print(f"Получен документ от пользователя {user_id}: {message.document.file_name}")
+
     if is_admin(user_id):
         bot.send_message(user_id, "Администраторы не могут загружать грамоты.")
         return
 
     records = students_sheet.get_all_records()
     for row in records:
+        print(row)  # Отладочное сообщение для проверки данных
         if row["ID"] == user_id and row["Статус"] == "approved":
             certificates_sheet.append_row([user_id, row["Имя"], row["Класс"], file_id, "pending"])
             bot.send_message(user_id, "Грамота отправлена на проверку.")
