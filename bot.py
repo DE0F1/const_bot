@@ -110,7 +110,7 @@ def approve_student(call):
     data = students_sheet.get_all_values()
     for i, row in enumerate(data):
         if row[0] == str(user_id):
-                   students_sheet.update_cell(i + 1, 5, "approved")
+            students_sheet.update_cell(i + 1, 5, "approved")
             bot.send_message(user_id, "Ваш аккаунт подтвержден!", reply_markup=main_menu())
             bot.send_message(call.message.chat.id, "Ученик подтвержден!")
             return
