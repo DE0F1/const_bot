@@ -115,6 +115,7 @@ def approve_student(call):
             bot.send_message(call.message.chat.id, "Ученик подтвержден!")
             return
 
+#Загрузка грамот
 @bot.message_handler(content_types=['document'])
 def upload_certificate(message):
     user_id = message.chat.id
@@ -132,7 +133,7 @@ def upload_certificate(message):
             found = True  # Устанавливаем флаг, если пользователь найден
             try:
                 # Добавляем данные в таблицу certificates
-                certificates_sheet.append_row([user_id, row["Имя"], row["Класс"], file_id], "approved")
+                certificates_sheet.append_row([user_id, row["Имя"], row["Класс"], file_id])
                 bot.send_message(user_id, "Грамота отправлена на проверку.")
                 
                 for admin_id in ADMIN_IDS:
