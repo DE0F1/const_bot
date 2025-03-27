@@ -128,7 +128,7 @@ def upload_certificate(message):
     records = students_sheet.get_all_records()
     for row in records:
         if row["ID"] == user_id and row["Статус"] == "approved":
-            # Убедитесь, что ключи соответствуют названиям столбцов в вашей таблице
+            # Добавляем данные в таблицу certificates
             certificates_sheet.append_row([user_id, row["Имя"], row["Класс"], file_id, "pending"])
             bot.send_message(user_id, "Грамота отправлена на проверку.")
             
@@ -148,11 +148,10 @@ def approve_certificate(call):
 
     data = certificates_sheet.get_all_values()
     for i, row in enumerate(data):
-        if row[3] == file_id:  
-            # Обновляем статус в соответствующем столбце
-            certificates_sheet.update_cell(i + 1, 5, "approved")  
+        if row[3] == file_id:  # Проверяем по индексу 3, так как "file_id" на 4-м месте
+            certificates_sheet.update_cell(i + 1, 5, "approved")  # Обновляем статус
             bot.send_message(call.message.chat.id, "Грамота подтверждена!")
-            bot.send_message(int(row[0]), "Ваша грамота подтверждена!")  
+            bot.send_message(int(row[0]), "Ваша грамота подтверждена!")  # ID ученика на 1-м месте
             return
 
 # ==== Просмотр грамот ====
@@ -163,13 +162,12 @@ def my_certificates(message):
     found = False
 
     for row in records:
-        if row["ID"] == user_id and row["Status"] == "approved":  
-            bot.send_document(user_id, row["File"])  
+        if row["user_id"] == user_id and row["status"] == "approved":  # Проверяем статус
+            bot.send_document(user_id, row["file_id"])  # Отправляем файл
             found = True
 
     if not found:
         bot.send_message(user_id, "У вас нет подтвержденных грамот.")
-        
+
 # ==== Запуск бота ====
-# Запуск бота с увеличенным временем ожидания
 bot.polling(timeout=30)  # Увеличьте время ожидания до 30 секунд
