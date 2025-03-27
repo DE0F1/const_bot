@@ -116,10 +116,16 @@ def approve_student(call):
             return
 
 # ==== Загрузка грамот ====
+@bot.message_handler(func=lambda message: message.text == "Загрузить грамоту 📜")
+def request_certificate_upload(message):
+    user_id = message.chat.id
+    bot.send_message(user_id, "Загрузите документ (грамоту):")
+
+# Обработка загрузки документа
 @bot.message_handler(content_types=['document'])
 def upload_certificate(message):
     user_id = message.chat.id
-    file= message.document.file
+    file_id = message.document.file_id
 
     if is_admin(user_id):
         bot.send_message(user_id, "Администраторы не могут загружать грамоты.")
@@ -129,7 +135,7 @@ def upload_certificate(message):
     for row in records:
         if row["ID"] == user_id and row["Статус"] == "approved":
             # Добавляем данные в таблицу certificates
-            certificates_sheet.append_row([user_id, row["Имя"], row["Класс"], file, "pending"])
+            certificates_sheet.append_row([user_id, row["Имя"], row["Класс"], file_id, "pending"])
             bot.send_message(user_id, "Грамота отправлена на проверку.")
             
             for admin_id in ADMIN_IDS:
@@ -153,7 +159,6 @@ def approve_certificate(call):
             bot.send_message(call.message.chat.id, "Грамота подтверждена!")
             bot.send_message(int(row[0]), "Ваша грамота подтверждена!")  # ID ученика на 1-м месте
             return
-
 # ==== Просмотр грамот ====
 @bot.message_handler(func=lambda message: message.text == "Мои грамоты 📂")
 def my_certificates(message):
