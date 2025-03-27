@@ -18,9 +18,14 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 
 # Открываем таблицу
-spreadsheet = client.open("Students Certificates")
-students_sheet = spreadsheet.worksheet("students")
-certificates_sheet = spreadsheet.worksheet("certificates")
+try:
+    spreadsheet = client.open("Students Certificates")
+    students_sheet = spreadsheet.worksheet("students")
+    certificates_sheet = spreadsheet.worksheet("certificates")
+except gspread.SpreadsheetNotFound:
+    raise ValueError("Таблица 'Students Certificates' не найдена.")
+except Exception as e:
+    raise ValueError(f"Ошибка при открытии таблицы: {e}")
 
 TOKEN = os.getenv("BOT_TOKEN")
 
@@ -30,7 +35,7 @@ if not TOKEN:
 bot = telebot.TeleBot(TOKEN)
 
 # Список ID администраторов
-ADMIN_IDS = os.getenv("ADMIN_IDS")  # Замените на реальные ID
+ADMIN_IDS = os.getenv("ADMIN_IDS").split(",")  # Убедитесь, что это список ID
 
 # ==== Главное меню ====
 def main_menu():
@@ -97,7 +102,7 @@ def approve_student(call):
     data = students_sheet.get_all_values()
     for i, row in enumerate(data):
         if row[0] == str(user_id):
-            students_sheet.update_cell(i+1, 5, "approved")
+            students_sheet.update_cell(i + 1, 5, "approved")
             bot.send_message(user_id, "Ваш аккаунт подтвержден!", reply_markup=main_menu())
             bot.send_message(call.message.chat.id, "Ученик подтвержден!")
             return
@@ -111,7 +116,7 @@ def upload_certificate(message):
     records = students_sheet.get_all_records()
     for row in records:
         if row["ID"] == user_id and row["Статус"] == "approved":
-            certificates_sheet.append_row([file_id, user_id, file_id, "pending"])
+            certificates_sheet.append_row([file_id, user_id, message.document.file_name, "pending"])
             bot.send_message(user_id, "Грамота отправлена на проверку.")
             
             for admin_id in ADMIN_IDS:
@@ -131,7 +136,7 @@ def approve_certificate(call):
     data = certificates_sheet.get_all_values()
     for i, row in enumerate(data):
         if row[0] == file_id:
-            certificates_sheet.update_cell(i+1, 4, "approved")
+            certificates_sheet.update_cell(i + 1, 4, "approved")
             bot.send_message(call.message.chat.id, "Грамота подтверждена!")
             bot.send_message(int(row[1]), "Ваша грамота подтверждена!")
             return
