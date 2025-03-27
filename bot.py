@@ -121,16 +121,14 @@ def upload_certificate(message):
     user_id = message.chat.id
     file_id = message.document.file_id
 
-    print(f"Получен документ от пользователя {user_id}: {message.document.file_name}")
-
     if is_admin(user_id):
         bot.send_message(user_id, "Администраторы не могут загружать грамоты.")
         return
 
     records = students_sheet.get_all_records()
     for row in records:
-        print(row)  # Отладочное сообщение для проверки данных
         if row["ID"] == user_id and row["Статус"] == "approved":
+            # Убедитесь, что ключи соответствуют названиям столбцов в вашей таблице
             certificates_sheet.append_row([user_id, row["Имя"], row["Класс"], file_id, "pending"])
             bot.send_message(user_id, "Грамота отправлена на проверку.")
             
@@ -150,10 +148,11 @@ def approve_certificate(call):
 
     data = certificates_sheet.get_all_values()
     for i, row in enumerate(data):
-        if row[3] == file_id:  # Проверяем по индексу 3, так как "File" на 4-м месте
-            certificates_sheet.update_cell(i + 1, 4, "approved")  # Обновляем статус
+        if row[3] == file_id:  
+            # Обновляем статус в соответствующем столбце
+            certificates_sheet.update_cell(i + 1, 5, "approved")  
             bot.send_message(call.message.chat.id, "Грамота подтверждена!")
-            bot.send_message(int(row[0]), "Ваша грамота подтверждена!")  # ID ученика на 1-м месте
+            bot.send_message(int(row[0]), "Ваша грамота подтверждена!")  
             return
 
 # ==== Просмотр грамот ====
@@ -164,13 +163,13 @@ def my_certificates(message):
     found = False
 
     for row in records:
-        if row["ID"] == user_id and row["Status"] == "approved":  # Проверяем статус
-            bot.send_document(user_id, row["File"])  # Отправляем файл
+        if row["ID"] == user_id and row["Status"] == "approved":  
+            bot.send_document(user_id, row["File"])  
             found = True
 
     if not found:
         bot.send_message(user_id, "У вас нет подтвержденных грамот.")
-
+        
 # ==== Запуск бота ====
 # Запуск бота с увеличенным временем ожидания
 bot.polling(timeout=30)  # Увеличьте время ожидания до 30 секунд
