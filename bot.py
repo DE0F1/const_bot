@@ -132,7 +132,7 @@ def upload_certificate(message):
             found = True  # Устанавливаем флаг, если пользователь найден
             try:
                 # Добавляем данные в таблицу certificates
-                certificates_sheet.append_row([user_id, row["Имя"], row["Класс"], file_id, "pending"])
+                certificates_sheet.append_row([user_id, row["Имя"], row["Класс"], file_id])
                 bot.send_message(user_id, "Грамота отправлена на проверку.")
                 
                 for admin_id in ADMIN_IDS:
