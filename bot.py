@@ -17,13 +17,12 @@ scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/au
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 
-# Открываем таблицу
+# Открываем таблицы
 try:
-    spreadsheet = client.open("Student Certificates")
-    students_sheet = spreadsheet.worksheet("students")
-    certificates_sheet = spreadsheet.worksheet("certificates")
+    students_sheet = client.open("Students").sheet1  # Первая таблица для студентов
+    certificates_sheet = client.open("Certificates").sheet1  # Вторая таблица для сертификатов
 except gspread.SpreadsheetNotFound:
-    raise ValueError("Таблица 'Student Certificates' не найдена.")
+    raise ValueError("Одна из таблиц не найдена.")
 except Exception as e:
     raise ValueError(f"Ошибка при открытии таблицы: {e}")
 
@@ -66,8 +65,8 @@ def start(message):
         return
 
     for row in records:
-        if row["ID"] == user_id:
-            if row["Статус"] == "approved":
+        if row.get("ID") == user_id:
+            if row.get("Статус") == "approved":
                 bot.send_message(user_id, "Добро пожаловать!", reply_markup=main_menu())
             else:
                 bot.send_message(user_id, "Ожидайте подтверждения.")
@@ -115,6 +114,13 @@ def approve_student(call):
             bot.send_message(call.message.chat.id, "Ученик подтвержден!")
             return
 
+# ==== Загрузка грамот ====
+@bot.message_handler(func=lambda message: message.text == "Загрузить грамоту 📜")
+def request_certificate_upload(message):
+    user_id = message.chat.id
+    bot.send_message(user_id, "Загрузите документ (грамоту):")
+
+# Обработка загрузки документа
 @bot.message_handler(content_types=['document'])
 def upload_certificate(message):
     user_id = message.chat.id
@@ -132,7 +138,7 @@ def upload_certificate(message):
             found = True  # Устанавливаем флаг, если пользователь найден
             try:
                 # Добавляем данные в таблицу certificates
-                certificates_sheet.append_row([user_id, row["Имя"], row["Класс"], file_id], "approved")
+                certificates_sheet.append_row([user_id, row["Имя"], row["Класс"], file_id, "pending"])
                 bot.send_message(user_id, "Грамота отправлена на проверку.")
                 
                 for admin_id in ADMIN_IDS:
@@ -161,6 +167,7 @@ def approve_certificate(call):
             bot.send_message(call.message.chat.id, "Грамота подтверждена!")
             bot.send_message(int(row[0]), "Ваша грамота подтверждена!")  # ID ученика на 1-м месте
             return
+
 # ==== Просмотр грамот ====
 @bot.message_handler(func=lambda message: message.text == "Мои грамоты 📂")
 def my_certificates(message):
@@ -169,7 +176,7 @@ def my_certificates(message):
     found = False
 
     for row in records:
-        if row["user_id"] == user_id and row["status"] == "approved":  # Проверяем статус
+        if row.get("user_id") == user_id and row.get("status") == "approved":  # Проверяем статус
             bot.send_document(user_id, row["file_id"])  # Отправляем файл
             found = True
 
@@ -177,4 +184,4 @@ def my_certificates(message):
         bot.send_message(user_id, "У вас нет подтвержденных грамот.")
 
 # ==== Запуск бота ====
-bot.polling(timeout=30)  # Увеличьте время ожидания до 30 секунд
+bot.polling(timeout=30)  # Увеличьте время ожидания до 30 секун
