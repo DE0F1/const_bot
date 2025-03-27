@@ -19,11 +19,11 @@ client = gspread.authorize(creds)
 
 # Открываем таблицу
 try:
-    spreadsheet = client.open("Students Certificates")
+    spreadsheet = client.open("Student Certificates")
     students_sheet = spreadsheet.worksheet("students")
     certificates_sheet = spreadsheet.worksheet("certificates")
 except gspread.SpreadsheetNotFound:
-    raise ValueError("Таблица 'Students Certificates' не найдена.")
+    raise ValueError("Таблица 'Student Certificates' не найдена.")
 except Exception as e:
     raise ValueError(f"Ошибка при открытии таблицы: {e}")
 
