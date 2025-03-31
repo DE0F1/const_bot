@@ -1,12 +1,12 @@
 import telebot
 import gspread
 import json
+import os
+import requests
 from oauth2client.service_account import ServiceAccountCredentials
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from dotenv import load_dotenv
-import os
 
-# Загрузка переменных окружения
 load_dotenv()
 service_account_info = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
 
@@ -30,7 +30,7 @@ except Exception as e:
 
 TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
-    raise ValueError("NO TOKEN")
+    raise ValueError("NO TOKENS")
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -51,7 +51,7 @@ def admin_menu():
     markup.add(KeyboardButton("Просмотр грамот 📜"))
     return markup
 
-# ==== Проверка на администратора ====
+# ==== Проверка администратора ====
 def is_admin(user_id):
     return str(user_id) in ADMIN_IDS
 
@@ -95,17 +95,17 @@ def get_class(message, name, email):
 
     students_sheet.append_row([user_id, name, email, class_name, "pending"])
     bot.send_message(user_id, "Регистрация отправлена на подтверждение.")
-    
+
     for admin_id in ADMIN_IDS:
         bot.send_message(admin_id, f"Новый ученик: {name}\nКласс: {class_name}\nID: {user_id}",
                          reply_markup=InlineKeyboardMarkup().add(
-                             InlineKeyboardButton("✅ Подтвердить", callback_data=f"approve_{user_id}")
+                             InlineKeyboardButton("✅ Подтвердить", callback_data=f"approve:{user_id}")
                          ))
 
 # ==== Подтверждение регистрации ====
-@bot.callback_query_handler(func=lambda call: call.data.startswith("approve_"))
+@bot.callback_query_handler(func=lambda call: call.data.startswith("approve:"))
 def approve_student(call):
-    user_id = call.data.split("_")[1]
+    user_id = call.data.split(":")[1]
 
     data = students_sheet.get_all_values()
     for i, row in enumerate(data):
@@ -126,50 +126,44 @@ def upload_certificate(message):
         return
 
     records = students_sheet.get_all_records()
-
     for row in records:
         if str(row["ID"]) == user_id and row["status"] == "approved":
-            try:
-                # Добавляем запись в таблицу
-                certificates_sheet.append_row([user_id, row["name"], row["class"], file_id, "pending"])
-                
-                # Получаем индекс последней строки
-                row_index = len(certificates_sheet.get_all_values())
+            file_info = bot.get_file(file_id)
+            file_path = file_info.file_path
 
-                bot.send_message(user_id, "Грамота отправлена на проверку.")
+            local_path = f"certificates/{file_id}.pdf"
+            os.makedirs("certificates", exist_ok=True)
 
-                for admin_id in ADMIN_IDS:
-                    bot.send_message(
-                        admin_id, 
-                        f"Новая грамота от {row['name']} (ID: {user_id})",
-                        reply_markup=InlineKeyboardMarkup().add(
-                            InlineKeyboardButton("✅ Подтвердить", callback_data=f"approve_cert_{row_index}")
-                        )
-                    )
-                return
-            except Exception as e:
-                bot.send_message(user_id, "Ошибка при записи в таблицу.")
-                print(f"Ошибка при записи: {e}")
-                return
+            file_url = f"https://api.telegram.org/file/bot{TOKEN}/{file_path}"
+            file_data = requests.get(file_url)
+
+            with open(local_path, "wb") as f:
+                f.write(file_data.content)
+
+            certificates_sheet.append_row([user_id, row["name"], row["class"], file_id, "pending"])
+            bot.send_message(user_id, "Грамота отправлена на проверку.")
+
+            for admin_id in ADMIN_IDS:
+                bot.send_message(admin_id, f"Новая грамота от {row['name']} (ID: {user_id})",
+                                 reply_markup=InlineKeyboardMarkup().add(
+                                     InlineKeyboardButton("✅ Подтвердить", callback_data=f"cert:{file_id}")
+                                 ))
+            return
 
     bot.send_message(user_id, "Вы не зарегистрированы или ожидаете подтверждения.")
 
 # ==== Подтверждение грамот ====
-@bot.callback_query_handler(func=lambda call: call.data.startswith("approve_cert_"))
+@bot.callback_query_handler(func=lambda call: call.data.startswith("cert:"))
 def approve_certificate(call):
-    row_index = int(call.data.split("_")[2])  # Индекс строки с сертификатом
-    
-    try:
-        certificates_sheet.update_cell(row_index, 5, "approved")  # Колонка "status"
-        
-        # Получаем ID студента из таблицы
-        student_id = certificates_sheet.cell(row_index, 1).value
-        bot.send_message(student_id, "Ваша грамота подтверждена! ✅")
-        bot.send_message(call.message.chat.id, "Грамота подтверждена!")
+    file_id = call.data.split(":")[1]
 
-    except Exception as e:
-        bot.send_message(call.message.chat.id, "Ошибка при подтверждении.")
-        print(f"Ошибка при подтверждении сертификата: {e}")
+    data = certificates_sheet.get_all_values()
+    for i, row in enumerate(data):
+        if row[3] == file_id:
+            certificates_sheet.update_cell(i + 1, 5, "approved")
+            bot.send_message(call.message.chat.id, "Грамота подтверждена!")
+            bot.send_message(int(row[0]), "Ваша грамота подтверждена!")
+            return
 
 # ==== Просмотр грамот ====
 @bot.message_handler(func=lambda message: message.text == "Мои грамоты 📂")
@@ -179,7 +173,7 @@ def my_certificates(message):
     found = False
 
     for row in records:
-        if str(row["ID"]) == user_id and row["status"] == "approved":
+        if row["ID"] == user_id and row["status"] == "approved":
             bot.send_document(user_id, row["file_id"])
             found = True
 
