@@ -6,6 +6,7 @@ import requests
 from oauth2client.service_account import ServiceAccountCredentials
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from dotenv import load_dotenv
+import time
 
 load_dotenv()
 service_account_info = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
@@ -140,35 +141,30 @@ def upload_certificate(message):
             with open(local_path, "wb") as f:
                 f.write(file_data.content)
 
-            # Добавляем строку в таблицу и получаем индекс
-            row_index = len(certificates_sheet.get_all_values()) + 1
             certificates_sheet.append_row([user_id, row["name"], row["class"], file_id, "pending"])
             bot.send_message(user_id, "Грамота отправлена на проверку.")
 
             for admin_id in ADMIN_IDS:
                 bot.send_message(admin_id, f"Новая грамота от {row['name']} (ID: {user_id})",
                                  reply_markup=InlineKeyboardMarkup().add(
-                                     InlineKeyboardButton("✅ Подтвердить", callback_data=f"cert_{row_index}")
+                                     InlineKeyboardButton("✅ Подтвердить", callback_data=f"cert:{file_id}")
                                  ))
-
             return
 
     bot.send_message(user_id, "Вы не зарегистрированы или ожидаете подтверждения.")
 
 # ==== Подтверждение грамот ====
-@bot.callback_query_handler(func=lambda call: call.data.startswith("cert_"))
+@bot.callback_query_handler(func=lambda call: call.data.startswith("cert:"))
 def approve_certificate(call):
-    row_index = int(call.data.split("_")[1])
+    file_id = call.data.split(":")[1]
 
-    try:
-        # Обновляем статус в таблице
-        certificates_sheet.update_cell(row_index, 5, "approved")
-        user_id = certificates_sheet.cell(row_index, 1).value  # Получаем ID ученика
-
-        bot.send_message(call.message.chat.id, "Грамота подтверждена!")
-        bot.send_message(int(user_id), "Ваша грамота подтверждена!")
-    except Exception as e:
-        bot.send_message(call.message.chat.id, f"Ошибка подтверждения: {e}")
+    data = certificates_sheet.get_all_values()
+    for i, row in enumerate(data):
+        if row[3] == file_id:
+            certificates_sheet.update_cell(i + 1, 5, "approved")
+            bot.send_message(call.message.chat.id, "Грамота подтверждена!")
+            bot.send_message(int(row[0]), "Ваша грамота подтверждена!")
+            return
 
 # ==== Просмотр грамот ====
 @bot.message_handler(func=lambda message: message.text == "Мои грамоты 📂")
@@ -176,6 +172,9 @@ def my_certificates(message):
     user_id = str(message.chat.id)
     records = certificates_sheet.get_all_records()
     found = False
+
+    # Добавляем задержку, чтобы данные успели обновиться в таблице
+    time.sleep(1)  # Задержка в 1 секунду (можно увеличить, если нужно больше времени)
 
     for row in records:
         if row["ID"] == user_id and row["status"] == "approved":
