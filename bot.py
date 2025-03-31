@@ -6,6 +6,7 @@ import requests
 from oauth2client.service_account import ServiceAccountCredentials
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from dotenv import load_dotenv
+import hashlib
 
 load_dotenv()
 service_account_info = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
@@ -37,6 +38,14 @@ bot = telebot.TeleBot(TOKEN)
 # Список ID администраторов
 ADMIN_IDS = os.getenv("ADMIN_IDS").split(",")
 
+# ==== Хэширование ID для callback ====
+def hash_id(id_str):
+    return hashlib.md5(id_str.encode()).hexdigest()
+
+def unhash_id(hashed_str):
+    # Для простоты, хэширование является односторонним процессом, и для восстановления оригинального значения потребуется алгоритм с возможностью обратного действия (например, хэш-таблицы или иной подход)
+    return hashed_str  # В реальном проекте это может потребовать использования базы данных для восстановления ID, если необходимо
+
 # ==== Главное меню ====
 def main_menu():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
@@ -47,7 +56,8 @@ def main_menu():
 # ==== Меню администратора ====
 def admin_menu():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(KeyboardButton("Админ Меню 📝"))
+    markup.add(KeyboardButton("Просмотр заявок 📝"))
+    markup.add(KeyboardButton("Просмотр грамот 📜"))
     return markup
 
 # ==== Проверка администратора ====
@@ -98,19 +108,19 @@ def get_class(message, name, email):
     for admin_id in ADMIN_IDS:
         bot.send_message(admin_id, f"Новый ученик: {name}\nКласс: {class_name}\nID: {user_id}",
                          reply_markup=InlineKeyboardMarkup().add(
-                             InlineKeyboardButton("✅ Подтвердить", callback_data=f"approve:{user_id}")
+                             InlineKeyboardButton("✅ Подтвердить", callback_data=f"approve:{hash_id(user_id)}")
                          ))
 
 # ==== Подтверждение регистрации ====
 @bot.callback_query_handler(func=lambda call: call.data.startswith("approve:"))
 def approve_student(call):
-    user_id = call.data.split(":")[1]
+    user_id_hash = call.data.split(":")[1]
 
     data = students_sheet.get_all_values()
     for i, row in enumerate(data):
-        if row[0] == user_id:
+        if hash_id(row[0]) == user_id_hash:
             students_sheet.update_cell(i + 1, 5, "approved")
-            bot.send_message(user_id, "Ваш аккаунт подтвержден!", reply_markup=main_menu())
+            bot.send_message(row[0], "Ваш аккаунт подтвержден!", reply_markup=main_menu())
             bot.send_message(call.message.chat.id, "Ученик подтвержден!")
             return
 
