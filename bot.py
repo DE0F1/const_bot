@@ -47,7 +47,7 @@ def main_menu():
 # ==== Меню администратора ====
 def admin_menu():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(KeyboardButton("Админ Меню 📝")
+    markup.add(KeyboardButton("Админ Меню 📝"))
     return markup
 
 # ==== Проверка администратора ====
