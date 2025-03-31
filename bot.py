@@ -45,13 +45,6 @@ def main_menu():
     markup.add(KeyboardButton("Мои грамоты 📂"))
     return markup
 
-# ==== Меню администратора ====
-def admin_menu():
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(KeyboardButton("Admin Menu 📝"))
-
-    return markup
-
 # ==== Проверка администратора ====
 def is_admin(user_id):
     return str(user_id) in ADMIN_IDS
@@ -139,11 +132,8 @@ def upload_certificate(message):
             file_info = bot.get_file(file_id)
             file_path = file_info.file_path
 
+            # Получаем URL файла через Telegram API
             file_url = f"https://api.telegram.org/file/bot{TOKEN}/{file_path}"
-            file_data = requests.get(file_url)
-
-            with open(local_path, "wb") as f:
-                f.write(file_data.content)
 
             # Хэшируем ID грамоты для безопасности
             hashed_file_id = generate_hash(file_id)
@@ -170,7 +160,7 @@ def approve_certificate(call):
 
     try:
         # Обновляем статус в таблице
-        certificates_sheet.update_cell(row_index, 5, "approved")
+        certificates_sheet.update_cell(row_index, 6, "approved")
         user_id = certificates_sheet.cell(row_index, 1).value  # Получаем ID ученика
 
         bot.send_message(call.message.chat.id, "Грамота подтверждена!")
@@ -188,9 +178,8 @@ def my_certificates(message):
     for row in records:
         # Проверяем, что статус грамоты "approved" и что ID совпадает
         if str(row["ID"]) == user_id and row["status"] == "approved":
-            file_id = row["file_id"]
-            # Восстановление файла по хэшированному ID
-            bot.send_document(user_id, f"certificates/{file_id}.pdf")
+            file_url = row["file_url"]
+            bot.send_message(user_id, f"Ваша грамота: {file_url}")  # Отправляем URL грамоты
             found = True
 
     if not found:
