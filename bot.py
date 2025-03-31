@@ -139,9 +139,6 @@ def upload_certificate(message):
             file_info = bot.get_file(file_id)
             file_path = file_info.file_path
 
-            local_path = f"certificates/{file_id}.pdf"
-            os.makedirs("certificates", exist_ok=True)
-
             file_url = f"https://api.telegram.org/file/bot{TOKEN}/{file_path}"
             file_data = requests.get(file_url)
 
@@ -153,7 +150,7 @@ def upload_certificate(message):
 
             # Добавляем строку в таблицу и получаем индекс
             row_index = len(certificates_sheet.get_all_values()) + 1
-            certificates_sheet.append_row([user_id, row["name"], row["class"], hashed_file_id, "pending"])
+            certificates_sheet.append_row([user_id, row["name"], row["class"], hashed_file_id, file_url, "pending"])
             bot.send_message(user_id, "Грамота отправлена на проверку.")
 
             for admin_id in ADMIN_IDS:
