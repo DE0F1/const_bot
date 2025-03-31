@@ -3,10 +3,10 @@ import gspread
 import json
 import os
 import requests
+import hashlib
 from oauth2client.service_account import ServiceAccountCredentials
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from dotenv import load_dotenv
-import hashlib
 
 load_dotenv()
 service_account_info = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
@@ -38,14 +38,6 @@ bot = telebot.TeleBot(TOKEN)
 # Список ID администраторов
 ADMIN_IDS = os.getenv("ADMIN_IDS").split(",")
 
-# ==== Хэширование ID для callback ====
-def hash_id(id_str):
-    return hashlib.md5(id_str.encode()).hexdigest()
-
-def unhash_id(hashed_str):
-    # Для простоты, хэширование является односторонним процессом, и для восстановления оригинального значения потребуется алгоритм с возможностью обратного действия (например, хэш-таблицы или иной подход)
-    return hashed_str  # В реальном проекте это может потребовать использования базы данных для восстановления ID, если необходимо
-
 # ==== Главное меню ====
 def main_menu():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
@@ -63,6 +55,10 @@ def admin_menu():
 # ==== Проверка администратора ====
 def is_admin(user_id):
     return str(user_id) in ADMIN_IDS
+
+# ==== Хэширование данных ====
+def generate_hash(input_string):
+    return hashlib.sha256(input_string.encode()).hexdigest()
 
 # ==== Старт бота ====
 @bot.message_handler(commands=['start'])
@@ -102,25 +98,28 @@ def get_class(message, name, email):
     user_id = str(message.chat.id)
     class_name = message.text
 
-    students_sheet.append_row([user_id, name, email, class_name, "pending"])
+    # Хэшируем ID пользователя для безопасности
+    hashed_user_id = generate_hash(user_id)
+
+    students_sheet.append_row([hashed_user_id, name, email, class_name, "pending"])
     bot.send_message(user_id, "Регистрация отправлена на подтверждение.")
 
     for admin_id in ADMIN_IDS:
-        bot.send_message(admin_id, f"Новый ученик: {name}\nКласс: {class_name}\nID: {user_id}",
+        bot.send_message(admin_id, f"Новый ученик: {name}\nКласс: {class_name}\nID: {hashed_user_id}",
                          reply_markup=InlineKeyboardMarkup().add(
-                             InlineKeyboardButton("✅ Подтвердить", callback_data=f"approve:{hash_id(user_id)}")
+                             InlineKeyboardButton("✅ Подтвердить", callback_data=f"approve:{hashed_user_id}")
                          ))
 
 # ==== Подтверждение регистрации ====
 @bot.callback_query_handler(func=lambda call: call.data.startswith("approve:"))
 def approve_student(call):
-    user_id_hash = call.data.split(":")[1]
+    hashed_user_id = call.data.split(":")[1]
 
     data = students_sheet.get_all_values()
     for i, row in enumerate(data):
-        if hash_id(row[0]) == user_id_hash:
+        if row[0] == hashed_user_id:
             students_sheet.update_cell(i + 1, 5, "approved")
-            bot.send_message(row[0], "Ваш аккаунт подтвержден!", reply_markup=main_menu())
+            bot.send_message(hashed_user_id, "Ваш аккаунт подтвержден!", reply_markup=main_menu())
             bot.send_message(call.message.chat.id, "Ученик подтвержден!")
             return
 
@@ -149,9 +148,12 @@ def upload_certificate(message):
             with open(local_path, "wb") as f:
                 f.write(file_data.content)
 
+            # Хэшируем ID грамоты для безопасности
+            hashed_file_id = generate_hash(file_id)
+
             # Добавляем строку в таблицу и получаем индекс
             row_index = len(certificates_sheet.get_all_values()) + 1
-            certificates_sheet.append_row([user_id, row["name"], row["class"], file_id, "pending"])
+            certificates_sheet.append_row([user_id, row["name"], row["class"], hashed_file_id, "pending"])
             bot.send_message(user_id, "Грамота отправлена на проверку.")
 
             for admin_id in ADMIN_IDS:
@@ -187,8 +189,11 @@ def my_certificates(message):
     found = False
 
     for row in records:
-        if row["ID"] == user_id and row["status"] == "approved":
-            bot.send_document(user_id, row["file_id"])
+        # Проверяем, что статус грамоты "approved" и что ID совпадает
+        if str(row["ID"]) == user_id and row["status"] == "approved":
+            file_id = row["file_id"]
+            # Восстановление файла по хэшированному ID
+            bot.send_document(user_id, f"certificates/{file_id}.pdf")
             found = True
 
     if not found:
